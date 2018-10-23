@@ -1,2 +1,7 @@
-# ProntoClient
-Test of building a client that interacts with the VANTIQ Event Broker
+# Node Pronto Client
+
+Test that external applications can interact with the VANTIQ Event Broker
+
+## Run It
+
+`npm start`
