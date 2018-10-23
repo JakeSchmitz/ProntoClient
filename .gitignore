@@ -1,3 +1,4 @@
 # Files to exclude from git
 /node_modules
 *.log
+.idea

@@ -8,13 +8,15 @@
 </head>
 <body>
 <div class="container">
-    <h3>Now Viewing Catalog Hosted By <%= manager.name %></h3>
+    <h2>Now Viewing Catalog Hosted By <%= manager.name %></h2>
     <table>
         <thead>
             <tr>
                 <td>Event Type</td>
                 <td>Description</td>
                 <td>Tags</td>
+                <td>Subscribed Topic</td>
+                <td>Published Address</td>
                 <td>Actions</td>
             </tr>
         </thead>
@@ -25,8 +27,48 @@
                     <td><%= events[i].description %></td>
                     <td><%= events[i].ars_properties.tags %></td>
                     <td>
-                        <button class="btn btn-primary">Subscribe</button>
-                        <button class="btn btn-primary">Publish</button>
+                        <% if (events[i].subscriber) { %>
+                            <%= events[i].subscriber.localName %>
+                        <% } %>
+                    </td>
+                    <td>
+                        <% if (events[i].publisher) { %>
+                            <%= events[i].publisher.localEvent %>
+                        <% } %>
+                    </td>
+                    <td>
+                        <% if (!events[i].subscriber) { %>
+                            <form action="/subscribe" method="post" class="inline">
+                                <input type="hidden" name="sessionId" value="<%= sessionId %>">
+                                <input type="hidden" name="event" value="<%= JSON.stringify(events[i]) %>">
+                                <input type="hidden" name="manager" value="<%= JSON.stringify(manager) %>">
+                                <input type="submit" class="btn btn-primary" value="Subscribe">
+                            </form>
+                        <% } %>
+                        <% if (events[i].subscriber) { %>
+                            <form action="/unsubscribe" method="post" class="inline">
+                                <input type="hidden" name="sessionId" value="<%= sessionId %>">
+                                <input type="hidden" name="event" value="<%= JSON.stringify(events[i]) %>">
+                                <input type="hidden" name="manager" value="<%= JSON.stringify(manager) %>">
+                                <input type="submit" class="btn btn-primary" value="Unsubscribe">
+                            </form>
+                        <% } %>
+                        <% if (!events[i].publisher) { %>
+                            <form action="/publish" method="post" class="inline">
+                                <input type="hidden" name="sessionId" value="<%= sessionId %>">
+                                <input type="hidden" name="event" value="<%= JSON.stringify(events[i]) %>">
+                                <input type="hidden" name="manager" value="<%= JSON.stringify(manager) %>">
+                                <input type="submit" class="btn btn-primary" value="Publish">
+                            </form>
+                        <% } %>
+                        <% if (events[i].publisher) { %>
+                            <form action="/unpublish" method="post" class="inline">
+                                <input type="hidden" name="sessionId" value="<%= sessionId %>">
+                                <input type="hidden" name="event" value="<%= JSON.stringify(events[i]) %>">
+                                <input type="hidden" name="manager" value="<%= JSON.stringify(manager) %>">
+                                <input type="submit" class="btn btn-primary" value="Stop Publishing">
+                            </form>
+                        <% } %>
                     </td>
                 </tr>
             <% } %>
