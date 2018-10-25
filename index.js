@@ -40,7 +40,7 @@ var getManagers = function(vantiq, sessionId, res) {
  * events
  * @param res
  */
-var renderCatalogForManager = function(vantiq, sessionId, manager, res) {
+var renderCatalogForManager = function(vantiq, sessionId, manager, res, error) {
     // Use SDK to fetch a list of all known event types for a manager
     // We can utilize the built-in procedure Broker.getAllEvents
     vantiq.execute("Broker.getAllEvents", {managerNode: manager.name}).then((events) => {
@@ -72,16 +72,38 @@ var renderCatalogForManager = function(vantiq, sessionId, manager, res) {
                 }
 
                 // The results are a list of ArsEventType object representing events defined in the catalog
-                res.render('catalog', {manager: manager, events: events, sessionId: sessionId});
+                res.render('catalog', {manager: manager, events: events, sessionId: sessionId, error: error});
             }).catch((err) => {
                 console.log("Failed to fetch all publishers: " + JSON.stringify(err));
+                res.render('catalog', {manager: manager, events: events, sessionId: sessionId, error: err});
             });
         }).catch((err) => {
             console.log("Failed to fetch all subscribers: " + JSON.stringify(err));
+            res.render('catalog', {manager: manager, events: events, sessionId: sessionId, error: err});
         });
     }).catch((err) => {
         console.log("Failed to fetch all events: " + JSON.stringify(err));
+        res.render('catalog', {manager: manager, events: [], sessionId: sessionId, error: err});
     });
+};
+
+var getSessionAndRedirectIfMissing = function(req, res) {
+    var vantiq = vantiqSessions[req.body.sessionId];
+    if (!vantiq) {
+        vantiq = new Vantiq({
+            server:     'http://localhost:8080',
+            apiVersion: 1
+        });
+
+        vantiqSessions[req.body.sessionId] = vantiq;
+        res.render('index', {authenticated: false, error: "Session was lost, please sign in again", managers: [], manager: [], sessionId: req.body.sessionId});
+    } else {
+        return vantiq;
+    }
+};
+
+var handleEvent = function(event) {
+
 };
 
 /**
@@ -94,12 +116,9 @@ app.get('/', function (req, res) {
         server:     'http://localhost:8080',
         apiVersion: 1
     });
-    console.log(vantiq);
     // Generate a unique identifier for this session
     var sessionId = uuidv4();
-    console.log(sessionId);
     vantiqSessions[sessionId] = vantiq;
-    console.log(vantiqSessions);
     res.render('index', {authenticated: false, error: null, managers: [], manager: [], sessionId: sessionId});
 });
 
@@ -107,9 +126,7 @@ app.get('/', function (req, res) {
  * Authenticate the SDK using username/ password and then get the known catalogs
  */
 app.post('/credentials', function (req, res) {
-    console.log(req.body);
-    var vantiq = vantiqSessions[req.body.sessionId];
-    console.log(vantiq);
+    var vantiq = getSessionAndRedirectIfMissing(req,res);
     // Use sdk to authenticate
     var promise = vantiq.authenticate(req.body.username, req.body.password);
     promise.then((result) => {
@@ -126,7 +143,7 @@ app.post('/credentials', function (req, res) {
  * Update the access token used by the SDK then get the known catalogs
  */
 app.post('/token', function(req, res) {
-    var vantiq = vantiqSessions[req.body.sessionId];
+    var vantiq = getSessionAndRedirectIfMissing(req,res);
     var token = req.body.token;
     vantiq.accessToken = token;
     getManagers(vantiq, req.body.sessionId, res);
@@ -137,32 +154,79 @@ app.post('/token', function(req, res) {
  * from a single catatlog (identified by the manager namespace name)
  */
 app.post('/catalog', function(req, res) {
-    var vantiq = vantiqSessions[req.body.sessionId];
+    var vantiq = getSessionAndRedirectIfMissing(req,res);
     // The manager returned from authenticate was string encoded in the post, so parse it back into JSON
     var manager = JSON.parse(req.body.manager);
-    renderCatalogForManager(vantiq, req.body.sessionId, manager, res);
+    renderCatalogForManager(vantiq, req.body.sessionId, manager, res, null);
 });
 
 /**
- * Called when the subscribe button is clicked on an event type in the catalog
- * this button is only visible for events where the current namespace is not already
- * a subscriber
+ * Opens a form which the user can use to register as a subscriber of the event
  */
 app.post('/subscribeForm', function(req, res) {
-    var vantiq = vantiqSessions[req.body.sessionId];
+    var vantiq = getSessionAndRedirectIfMissing(req,res);
     var event = JSON.parse(req.body.event);
     var manager = JSON.parse(req.body.manager);
     // Render the subscribe page, which includes a form to register as a subscriber
     res.render('subscribe', {event: event, manager: manager, error: null, sessionId: req.body.sessionId});
 });
 
-/**
- * Similar to /subscribe, but for publish
- */
-app.post('/publishForm', function(req, res) {
-    var vantiq = vantiqSessions[req.body.sessionId];
+app.post('/subscribe', function(req, res) {
+    var vantiq = getSessionAndRedirectIfMissing(req,res);
     var event = JSON.parse(req.body.event);
     var manager = JSON.parse(req.body.manager);
+    var localName = req.body.localName;
+    var subscriber = {
+        localName: localName,
+        name: event.name,
+        managerNode: manager.name
+    };
+
+    // Either way, we want to go back to the catalog
+    vantiq.execute("Subscriber.subscribe", subscriber).then((result) => {
+        renderCatalogForManager(vantiq, req.body.sessionId, manager, res, null);
+    }).catch((err) => {
+        console.log(err);
+        renderCatalogForManager(vantiq, req.body.sessionId, manager, res, err);
+    });
+});
+
+/**
+ * Similar to /subscribeForm, but for publish
+ */
+app.post('/publishForm', function(req, res) {
+    var vantiq = getSessionAndRedirectIfMissing(req,res);
+    var event = JSON.parse(req.body.event);
+    var manager = JSON.parse(req.body.manager);
+    // Render the subscribe page, which includes a form to register as a subscriber
+    res.render('publish', {event: event, manager: manager, error: null, sessionId: req.body.sessionId});
+});
+
+app.post('/publish', function(req, res) {
+    var vantiq = getSessionAndRedirectIfMissing(req,res);
+    var event = JSON.parse(req.body.event);
+    var manager = JSON.parse(req.body.manager);
+    var localEvent = req.body.localEvent;
+    var publisher = {
+        localEvent: localEvent,
+        name: event.name,
+        managerNode: manager.name
+    };
+
+    // Either way, we want to go back to the catalog
+    vantiq.execute("Publisher.addPublisher", publisher).then((result) => {
+        renderCatalogForManager(vantiq, req.body.sessionId, manager, res, null);
+    }).catch((err) => {
+        console.log(err);
+        renderCatalogForManager(vantiq, req.body.sessionId, manager, res, err);
+    });
+});
+
+app.post('/liveView', function(req, res) {
+    var vantiq = getSessionAndRedirectIfMissing(req,res);
+    var event = JSON.parse(req.body.event);
+    var manager = JSON.parse(req.body.manager);
+    var eventPath = event.localName;
     // Render the subscribe page, which includes a form to register as a subscriber
     res.render('publish', {event: event, manager: manager, error: null, sessionId: req.body.sessionId});
 });

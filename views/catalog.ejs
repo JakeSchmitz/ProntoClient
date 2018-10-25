@@ -9,6 +9,9 @@
 <body>
 <div class="container">
     <h2>Now Viewing Catalog Hosted By <%= manager.name %></h2>
+    <% if (locals.error) { %>
+        <h2>Error Loading Catalog: <%= JSON.stringify(error) %></h2>
+    <% } %>
     <table>
         <thead>
             <tr>
@@ -22,7 +25,7 @@
         </thead>
         <tbody>
             <% for (var i = 0; i < events.length; i++) { %>
-                <tr>
+                <tr style="border-bottom: 1px solid #CCC">
                     <td><%= events[i].name %></td>
                     <td><%= events[i].description %></td>
                     <td><%= events[i].ars_properties.tags %></td>
@@ -38,37 +41,47 @@
                     </td>
                     <td>
                         <% if (!events[i].subscriber) { %>
-                            <form action="/subscribe" method="post" class="inline">
+                            <form action="/subscribeForm" method="post" class="inline">
                                 <input type="hidden" name="sessionId" value="<%= sessionId %>">
                                 <input type="hidden" name="event" value="<%= JSON.stringify(events[i]) %>">
                                 <input type="hidden" name="manager" value="<%= JSON.stringify(manager) %>">
                                 <input type="submit" class="btn btn-primary" value="Subscribe">
                             </form>
+                            <br>
                         <% } %>
                         <% if (events[i].subscriber) { %>
-                            <form action="/unsubscribe" method="post" class="inline">
+                            <!--<form action="/unsubscribe" method="post" class="inline">-->
+                                <!--<input type="hidden" name="sessionId" value="<%= sessionId %>">-->
+                                <!--<input type="hidden" name="event" value="<%= JSON.stringify(events[i]) %>">-->
+                                <!--<input type="hidden" name="manager" value="<%= JSON.stringify(manager) %>">-->
+                                <!--<input type="submit" class="btn btn-primary" value="Unsubscribe">-->
+                            <!--</form>-->
+                            <form action="/liveView" method="post" class="inline">
                                 <input type="hidden" name="sessionId" value="<%= sessionId %>">
                                 <input type="hidden" name="event" value="<%= JSON.stringify(events[i]) %>">
                                 <input type="hidden" name="manager" value="<%= JSON.stringify(manager) %>">
-                                <input type="submit" class="btn btn-primary" value="Unsubscribe">
+                                <input type="submit" class="btn btn-primary" value="View Live Events">
                             </form>
+                            <br>
                         <% } %>
                         <% if (!events[i].publisher) { %>
-                            <form action="/publish" method="post" class="inline">
+                            <form action="/publishForm" method="post" class="inline">
                                 <input type="hidden" name="sessionId" value="<%= sessionId %>">
                                 <input type="hidden" name="event" value="<%= JSON.stringify(events[i]) %>">
                                 <input type="hidden" name="manager" value="<%= JSON.stringify(manager) %>">
                                 <input type="submit" class="btn btn-primary" value="Publish">
                             </form>
+                            <br>
                         <% } %>
-                        <% if (events[i].publisher) { %>
-                            <form action="/unpublish" method="post" class="inline">
-                                <input type="hidden" name="sessionId" value="<%= sessionId %>">
-                                <input type="hidden" name="event" value="<%= JSON.stringify(events[i]) %>">
-                                <input type="hidden" name="manager" value="<%= JSON.stringify(manager) %>">
-                                <input type="submit" class="btn btn-primary" value="Stop Publishing">
-                            </form>
-                        <% } %>
+                        <!--<% if (events[i].publisher) { %>-->
+                            <!--<form action="/unpublish" method="post" class="inline">-->
+                                <!--<input type="hidden" name="sessionId" value="<%= sessionId %>">-->
+                                <!--<input type="hidden" name="event" value="<%= JSON.stringify(events[i]) %>">-->
+                                <!--<input type="hidden" name="manager" value="<%= JSON.stringify(manager) %>">-->
+                                <!--<input type="submit" class="btn btn-primary" value="Stop Publishing">-->
+                            <!--</form>-->
+                            <!--<br>-->
+                        <!--<% } %>-->
                     </td>
                 </tr>
             <% } %>
