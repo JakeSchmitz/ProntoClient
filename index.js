@@ -1,13 +1,17 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const uuidv4 = require('uuid/v4');
-const app = express();
+var app = express();
 
+var http = require('http').Server(app);
+var io = require('socket.io')(http);
 var Vantiq = require('vantiq-sdk');
 
 // Holder to contain all the different vantiq sdk instances
 // This is necessary to support multiple simultaneous users
 var vantiqSessions = {};
+var openSocketsBySession = {};
+var openSessionsBySocket = {};
 
 app.use(express.static('public'));
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -102,8 +106,17 @@ var getSessionAndRedirectIfMissing = function(req, res) {
     }
 };
 
-var handleEvent = function(event) {
-
+var handleEventForSession = function(sessionId) {
+    // need to return a function that can be called everytime a new event arrives
+    return function(event) {
+        // Check if there is already an established socket
+        var socket = openSocketsBySession[sessionId];
+        // Only proceed if there is an open socket
+        if (socket && event.status === 100) {
+            console.log("OPEN SESSION!");
+            socket.emit('event', event.body.value);
+        }
+    }
 };
 
 /**
@@ -226,14 +239,38 @@ app.post('/liveView', function(req, res) {
     var vantiq = getSessionAndRedirectIfMissing(req,res);
     var event = JSON.parse(req.body.event);
     var manager = JSON.parse(req.body.manager);
-    var eventPath = event.localName;
+    var subscription = event.subscriber;
+    var eventPath = subscription.localName;
+    // first unsubscribe, then subcribe
+    vantiq.unsubscribeAll();
+    vantiq.subscribe('topics', eventPath, handleEventForSession(req.body.sessionId));
     // Render the subscribe page, which includes a form to register as a subscriber
-    res.render('publish', {event: event, manager: manager, error: null, sessionId: req.body.sessionId});
+    res.render('liveView', {event: event, manager: manager, error: null, sessionId: req.body.sessionId});
+});
+
+io.on('connection', function(socket){
+    console.log('Socket opened for socket: ' + socket.id);
+
+    socket.on('register', function(msg) {
+        console.log("Session registered: " + socket.id);
+        console.log(msg);
+        openSocketsBySession[msg.sessionId] = socket;
+        openSessionsBySocket[socket.id] = msg.sessionId;
+    });
+
+    socket.on('disconnect', function() {
+        var sessionId = openSessionsBySocket[socket.id];
+        delete openSessionsBySocket[sessionId];
+    });
 });
 
 /**
  * Boilerplate to start up the node server and have it listen on 3001
  */
-app.listen(3001, function () {
-    console.log('Example app listening on port 3001!')
+// app.listen(3001, function () {
+//     console.log('Example app listening on port 3001!')
+// });
+
+http.listen(3001, function(){
+    console.log('listening on *:3000');
 });
