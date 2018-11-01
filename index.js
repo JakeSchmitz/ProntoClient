@@ -25,7 +25,7 @@ app.set('view engine', 'ejs');
  * @param res - The response handler
  */
 var getManagers = function(vantiq, sessionId, res) {
-    var results = {authenticated: true, error: null, managers: [], sessionId: sessionId};
+    var results = {authenticated: true, error: null, managers: [], manager: [], sessionId: sessionId};
     vantiq.select("system.nodes", [], {"ars_properties.manager": "true"}).then((nodes) => {
         results.managers = nodes;
         res.render('index', results);
@@ -272,5 +272,5 @@ io.on('connection', function(socket){
 // });
 
 http.listen(3001, function(){
-    console.log('listening on *:3000');
+    console.log('listening on *:3001');
 });
