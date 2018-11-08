@@ -10,6 +10,7 @@ Test that external applications can interact with the VANTIQ Event Broker
 * http
 * socket.io
 * vantiq-sdk
+* ejs
 
 ## Run It
 
